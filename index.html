@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b5d3b">
+  <title>Fiesta 15 - Control de Acceso</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="toast" class="toast hidden"></div>
+
+  <section id="loginView" class="login-shell">
+    <div class="login-card">
+      <div class="flag">🇲🇽</div>
+      <h1>Fiesta 15 de Septiembre</h1>
+      <p>Panel privado de control de invitados y accesos.</p>
+      <form id="loginForm">
+        <label>Correo
+          <input id="email" type="email" required autocomplete="username" placeholder="organizador@correo.com">
+        </label>
+        <label>Contraseña
+          <input id="password" type="password" required autocomplete="current-password" placeholder="••••••••">
+        </label>
+        <button class="btn primary full" type="submit">Entrar</button>
+      </form>
+      <p class="mini">Los usuarios se crean previamente en Supabase Auth.</p>
+    </div>
+  </section>
+
+  <div id="appView" class="hidden">
+    <header class="topbar">
+      <div>
+        <h1>🇲🇽 Fiesta 15 de Septiembre</h1>
+        <p id="userLabel">Control de acceso</p>
+      </div>
+      <button id="logoutBtn" class="btn ghost">Cerrar sesión</button>
+    </header>
+
+    <main class="container">
+      <nav class="tabs">
+        <button class="tab active" data-view="dashboard">Resumen</button>
+        <button class="tab" data-view="reservations">Reservaciones</button><button class="tab" data-view="guests">Invitados</button>
+        <button class="tab" data-view="scanner">Escáner</button>
+        <button class="tab" data-view="logs">Entradas</button>
+        <button class="tab" data-view="import">Importar</button>
+      </nav>
+
+      <section id="dashboard" class="view active">
+        <div class="stats">
+          <article class="stat"><span>Total invitados</span><strong id="sTotal">0</strong></article>
+          <article class="stat"><span>Pagados</span><strong id="sPaid">0</strong></article>
+          <article class="stat"><span>Pendientes</span><strong id="sUnpaid">0</strong></article>
+          <article class="stat"><span>Ya ingresaron</span><strong id="sEntered">0</strong></article>
+          <article class="stat"><span>Pagados por llegar</span><strong id="sPendingArrival">0</strong></article>
+        </div>
+        <div class="card">
+          <div class="row between">
+            <div>
+              <h2>Operación del evento</h2>
+              <p>Los cambios se actualizan automáticamente entre dispositivos conectados.</p>
+            </div>
+            <button class="btn secondary" id="refreshBtn">Actualizar</button>
+          </div>
+          <div id="connectionStatus" class="connection">Conectando…</div>
+        </div>
+      </section>
+
+      <section id="reservations" class="view"><div class="card"><div class="toolbar"><h2>Reservaciones y pagos</h2><button id="reloadReservations" class="btn secondary">Actualizar</button></div><div class="table-wrap"><table><thead><tr><th>Folio</th><th>Contacto</th><th>Invitado por</th><th>Boletos</th><th>Total</th><th>Estado</th><th>Comprobante</th><th>Acciones</th></tr></thead><tbody id="reservationRows"></tbody></table></div></div></section><section id="guests" class="view">
+        <div class="card">
+          <h2>Agregar invitado</h2>
+          <form id="guestForm" class="grid-form">
+            <input id="gName" placeholder="Nombre" required>
+            <input id="gLastName" placeholder="Apellido" required>
+            <input id="gHost" placeholder="Invitado por" required>
+            <input id="gAccount" placeholder="Cuenta / referencia de pago">
+            <select id="gPaid">
+              <option value="false">NO PAGADO</option>
+              <option value="true">PAGADO</option>
+            </select>
+            <button class="btn primary" type="submit">Agregar y generar QR</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="toolbar">
+            <h2>Lista de invitados</h2>
+            <input id="guestSearch" placeholder="Buscar nombre, código o invitado por…">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Código</th><th>Invitado</th><th>Invitado por</th>
+                <th>Pago</th><th>Acceso</th><th>QR</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="guestRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="scanner" class="view">
+        <div class="scanner-grid">
+          <div class="card">
+            <h2>Escanear boleto</h2>
+            <p>Permite acceso a la cámara tras autorizarla en el navegador.</p>
+            <div id="reader"></div>
+            <div class="manual">
+              <input id="manualCode" placeholder="Código del boleto">
+              <button id="manualBtn" class="btn primary">Validar</button>
+            </div>
+          </div>
+          <div id="scanResult" class="result neutral">
+            <div class="result-icon">🎟️</div>
+            <h2>Esperando boleto</h2>
+            <p>Escanea el QR del invitado.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="logs" class="view">
+        <div class="card">
+          <div class="toolbar">
+            <h2>Registro de entradas</h2>
+            <button id="reloadLogs" class="btn secondary">Actualizar</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha / hora</th><th>Invitado</th><th>Código</th><th>Resultado</th></tr></thead>
+              <tbody id="logRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="import" class="view">
+        <div class="card">
+          <h2>Importación masiva</h2>
+          <p>Exporta la plantilla de Excel como <strong>CSV UTF-8</strong> y selecciónala aquí. Columnas esperadas:
+            <code>nombre, apellido, invitado_por, cuenta_pago, pagado</code>.
+          </p>
+          <input id="csvFile" type="file" accept=".csv,text/csv">
+          <button id="importBtn" class="btn primary">Importar CSV</button>
+          <div id="importSummary" class="import-summary"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="qrModal" class="modal hidden">
+    <div class="modal-card">
+      <button id="closeQr" class="modal-x">×</button>
+      <h2 id="qrGuestName">Boleto</h2>
+      <div id="qrcode"></div>
+      <strong id="qrGuestCode"></strong>
+      <p class="mini">Presenta este QR en la entrada.</p>
+      <button id="printQr" class="btn primary">Imprimir / Guardar PDF</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
