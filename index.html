@@ -64,6 +64,29 @@
           </div>
           <div id="connectionStatus" class="connection">Conectando…</div>
         </div>
+
+        <div class="card">
+          <h2>Enlaces por familiar</h2>
+          <p>Escribe el nombre o apodo del familiar. El sistema generará el enlace de registro con su referencia incluida.</p>
+          <div class="family-link-builder">
+            <input id="familyRef" placeholder="Ej. Isaac, Diego, Mamá">
+            <button id="generateFamilyLink" class="btn primary">Generar enlace</button>
+          </div>
+          <div id="familyLinkResult" class="family-link-result hidden">
+            <input id="familyLink" readonly>
+            <button id="copyFamilyLink" class="btn secondary">Copiar enlace</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="toolbar"><h2>Estadísticas por familiar</h2><button id="reloadFamilyStats" class="btn secondary">Actualizar</button></div>
+          <div class="table-wrap">
+            <table class="family-table">
+              <thead><tr><th>Familiar</th><th>Reservaciones</th><th>Asistentes</th><th>Total esperado</th><th>Pagado</th><th>En validación</th><th>Pendiente</th></tr></thead>
+              <tbody id="familyStatsRows"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section id="reservations" class="view"><div class="card"><div class="toolbar"><h2>Reservaciones y pagos</h2><button id="reloadReservations" class="btn secondary">Actualizar</button></div><div class="table-wrap"><table><thead><tr><th>Folio</th><th>Contacto</th><th>Invitado por</th><th>Boletos</th><th>Total</th><th>Estado</th><th>Comprobante</th><th>Acciones</th></tr></thead><tbody id="reservationRows"></tbody></table></div></div></section><section id="guests" class="view">

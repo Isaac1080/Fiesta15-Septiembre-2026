@@ -107,3 +107,13 @@ Haz una prueba real con al menos 2 celulares:
 - Marcarlo pagado desde otro dispositivo y volver a escanear.
 - Probar un QR usado.
 - Revisar que las estadísticas coincidan.
+
+
+# V3 - Enlaces por familiar y copiar datos de pago
+
+- Precio: **$50 MXN por asistente**.
+- Datos bancarios configurados en `datos_bancarios.json`.
+- El registro público ahora incluye botones **Copiar CLABE** y **Copiar concepto**.
+- En el Resumen administrativo puedes escribir un familiar y generar su enlace `registro.html?ref=...`.
+- Las estadísticas por familiar se calculan con las reservaciones existentes, sin migración SQL adicional.
+- Para publicar V3 en GitHub Pages, reemplaza los archivos del repositorio por esta versión, pero conserva tu `config.js` real si este paquete tiene valores de ejemplo.
