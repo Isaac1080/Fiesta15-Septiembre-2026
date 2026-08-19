@@ -1,7 +1,12 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 const configured=!SUPABASE_URL.includes("PEGA_AQUI")&&!SUPABASE_PUBLISHABLE_KEY.includes("PEGA_AQUI");
-const sb=configured?createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null;let guests=[],reservations=[],scanner=null,channel=null;
+const sb=configured?createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY):null;
+let guests=[],reservations=[],scanner=null,channel=null;
+let scannerLocked=false;
+let lastScannedCode=null;
+let lastScannedAt=0;
+const SCAN_COOLDOWN_MS=8000;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],safe=(x="")=>String(x).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])),fullName=g=>`${g.nombre||""} ${g.apellido||""}`.trim(),whenMX=iso=>iso?new Date(iso).toLocaleString("es-MX"):"—";
 function toast(msg,ms=2800){const t=$("#toast");t.textContent=msg;t.classList.remove("hidden");setTimeout(()=>t.classList.add("hidden"),ms)}
 function makeCode(){const t=crypto.getRandomValues(new Uint32Array(2));return `F15-${t[0].toString(36).toUpperCase()}${t[1].toString(36).toUpperCase()}`}
@@ -21,7 +26,10 @@ async function deleteGuest(id){const g=guests.find(x=>x.id===id);if(!g||!confirm
 function showQR(id){const g=guests.find(x=>x.id===id);if(!g)return;$('#qrGuestName').textContent=fullName(g);$('#qrGuestCode').textContent=g.codigo;$('#qrcode').innerHTML='';new QRCode($('#qrcode'),{text:g.codigo,width:250,height:250});$('#qrModal').classList.remove('hidden')}
 $('#closeQr').onclick=()=>$('#qrModal').classList.add('hidden');$('#printQr').onclick=()=>window.print();$('#qrModal').onclick=e=>{if(e.target.id==='qrModal')$('#qrModal').classList.add('hidden')};
 async function validate(code){code=(code||'').trim();if(!code)return;const box=$('#scanResult');box.className='result neutral';box.innerHTML='<div class="result-icon">⏳</div><h2>Validando…</h2>';const{data,error}=await sb.rpc('validar_y_registrar_entrada',{p_codigo:code});if(error){box.className='result danger';box.innerHTML=`<div class="result-icon">⛔</div><h2>ERROR</h2><p>${safe(error.message)}</p>`;return}const r=Array.isArray(data)?data[0]:data;if(!r||r.resultado==='NO_EXISTE'){box.className='result danger';box.innerHTML='<div class="result-icon">⛔</div><h2>BOLETO NO VÁLIDO</h2>';return}const nm=safe(`${r.nombre} ${r.apellido}`);if(r.resultado==='NO_PAGADO'){box.className='result danger';box.innerHTML=`<div class="result-icon">❌</div><div class="name">${nm}</div><div class="big">BOLETO NO PAGADO</div><h2>NO PUEDE PASAR</h2>`;return}if(r.resultado==='YA_UTILIZADO'){box.className='result warning';box.innerHTML=`<div class="result-icon">⚠️</div><div class="name">${nm}</div><div class="big">BOLETO YA UTILIZADO</div><h2>NO PUEDE PASAR</h2><p>Entrada: ${safe(whenMX(r.fecha_ingreso))}</p>`;return}box.className='result success';box.innerHTML=`<div class="result-icon">✅</div><div class="name">${nm}</div><div class="big">BOLETO PAGADO</div><h2>PUEDE PASAR</h2><p>Entrada registrada automáticamente.</p>`;await loadGuests();await loadLogs()}
-$('#manualBtn').onclick=()=>validate($('#manualCode').value);$('#manualCode').addEventListener('keydown',e=>{if(e.key==='Enter')validate(e.target.value)});
+$('#manualBtn').onclick=()=>handleScannedCode($('#manualCode').value);
+$('#manualCode').addEventListener('keydown',e=>{
+  if(e.key==='Enter')handleScannedCode(e.target.value);
+});
 
 function renderNextScanButton(){
   const box = document.getElementById("scanResult");
@@ -77,6 +85,9 @@ async function handleScannedCode(decodedText){
   scannerLocked = true;
   lastScannedCode = code;
   lastScannedAt = now;
+
+  const manualField = document.getElementById("manualCode");
+if(manualField) manualField.value = code;
 
   // Pausamos el escáner sin destruir la cámara.
   // Esto evita que el mismo QR se lea múltiples veces.
