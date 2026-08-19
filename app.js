@@ -22,7 +22,62 @@ function showQR(id){const g=guests.find(x=>x.id===id);if(!g)return;$('#qrGuestNa
 $('#closeQr').onclick=()=>$('#qrModal').classList.add('hidden');$('#printQr').onclick=()=>window.print();$('#qrModal').onclick=e=>{if(e.target.id==='qrModal')$('#qrModal').classList.add('hidden')};
 async function validate(code){code=(code||'').trim();if(!code)return;const box=$('#scanResult');box.className='result neutral';box.innerHTML='<div class="result-icon">⏳</div><h2>Validando…</h2>';const{data,error}=await sb.rpc('validar_y_registrar_entrada',{p_codigo:code});if(error){box.className='result danger';box.innerHTML=`<div class="result-icon">⛔</div><h2>ERROR</h2><p>${safe(error.message)}</p>`;return}const r=Array.isArray(data)?data[0]:data;if(!r||r.resultado==='NO_EXISTE'){box.className='result danger';box.innerHTML='<div class="result-icon">⛔</div><h2>BOLETO NO VÁLIDO</h2>';return}const nm=safe(`${r.nombre} ${r.apellido}`);if(r.resultado==='NO_PAGADO'){box.className='result danger';box.innerHTML=`<div class="result-icon">❌</div><div class="name">${nm}</div><div class="big">BOLETO NO PAGADO</div><h2>NO PUEDE PASAR</h2>`;return}if(r.resultado==='YA_UTILIZADO'){box.className='result warning';box.innerHTML=`<div class="result-icon">⚠️</div><div class="name">${nm}</div><div class="big">BOLETO YA UTILIZADO</div><h2>NO PUEDE PASAR</h2><p>Entrada: ${safe(whenMX(r.fecha_ingreso))}</p>`;return}box.className='result success';box.innerHTML=`<div class="result-icon">✅</div><div class="name">${nm}</div><div class="big">BOLETO PAGADO</div><h2>PUEDE PASAR</h2><p>Entrada registrada automáticamente.</p>`;await loadGuests();await loadLogs()}
 $('#manualBtn').onclick=()=>validate($('#manualCode').value);$('#manualCode').addEventListener('keydown',e=>{if(e.key==='Enter')validate(e.target.value)});
-async function startScanner(){if(scanner||typeof Html5Qrcode==='undefined')return;scanner=new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},decoded=>validate(decoded),()=>{})}catch(e){$('#reader').innerHTML='<p style="padding:18px;color:#66736d">No se pudo abrir la cámara. Revisa permisos y usa HTTPS.</p>';scanner=null}}
+
+function renderNextScanButton(){
+  const box = document.getElementById("scanResult");
+  if(!box) return;
+  let actions = box.querySelector(".scan-actions");
+  if(!actions){
+    actions = document.createElement("div");
+    actions.className = "scan-actions";
+    box.appendChild(actions);
+  }
+  actions.innerHTML = `<button id="nextScanBtn" class="btn primary" disabled>Espera 5 segundos…</button>`;
+  let seconds = 5;
+  const btn = document.getElementById("nextScanBtn");
+  const timer = setInterval(()=>{
+    seconds--;
+    if(seconds > 0){
+      btn.textContent = `Espera ${seconds} segundos…`;
+    } else {
+      clearInterval(timer);
+      btn.disabled = false;
+      btn.textContent = "Escanear siguiente boleto";
+      btn.onclick = async ()=>{
+        scannerLocked = false;
+        document.getElementById("scanResult").className = "result neutral";
+        document.getElementById("scanResult").innerHTML =
+          '<div class="result-icon">🎟️</div><h2>Esperando boleto</h2><p>Escanea el siguiente QR.</p>';
+        await startScanner();
+      };
+    }
+  },1000);
+}
+
+async function handleScannedCode(decodedText){
+  const code = String(decodedText || "").trim();
+  if(!code || scannerLocked) return;
+
+  const now = Date.now();
+  if(code === lastScannedCode && (now - lastScannedAt) < SCAN_COOLDOWN_MS){
+    return;
+  }
+
+  scannerLocked = true;
+  lastScannedCode = code;
+  lastScannedAt = now;
+
+  await stopScanner();
+
+  const box = document.getElementById("scanResult");
+  box.className = "result neutral";
+  box.innerHTML = '<div class="result-icon">📸</div><h2>QR capturado</h2><p>Validando boleto…</p>';
+
+  await validate(code);
+  renderNextScanButton();
+}
+
+async function startScanner(){if(scanner||typeof Html5Qrcode==='undefined')return;scanner=new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},decoded=>handleScannedCode(decoded),()=>{})}catch(e){$('#reader').innerHTML='<p style="padding:18px;color:#66736d">No se pudo abrir la cámara. Revisa permisos y usa HTTPS.</p>';scanner=null}}
 async function stopScanner(){if(!scanner)return;try{await scanner.stop();scanner.clear()}catch{}scanner=null}
 async function loadLogs(){const{data,error}=await sb.from('registro_entradas').select('id,created_at,resultado,codigo,invitado_nombre').order('created_at',{ascending:false}).limit(500);if(error)return;$('#logRows').innerHTML=(data||[]).map(l=>`<tr><td>${safe(whenMX(l.created_at))}</td><td>${safe(l.invitado_nombre||'—')}</td><td>${safe(l.codigo||'—')}</td><td><strong>${safe(l.resultado)}</strong></td></tr>`).join('')}
 $('#reloadLogs').onclick=loadLogs;$('#refreshBtn').onclick=()=>{loadGuests();loadReservations();loadLogs()};
