@@ -48,7 +48,18 @@ function renderNextScanButton(){
         document.getElementById("scanResult").className = "result neutral";
         document.getElementById("scanResult").innerHTML =
           '<div class="result-icon">🎟️</div><h2>Esperando boleto</h2><p>Escanea el siguiente QR.</p>';
-        await startScanner();
+
+        try{
+          if(scanner){
+            scanner.resume();
+          }else{
+            await startScanner();
+          }
+        }catch(e){
+          console.warn("No se pudo reanudar; reiniciando cámara:", e);
+          scanner = null;
+          await startScanner();
+        }
       };
     }
   },1000);
@@ -67,13 +78,26 @@ async function handleScannedCode(decodedText){
   lastScannedCode = code;
   lastScannedAt = now;
 
-  await stopScanner();
+  // Pausamos el escáner sin destruir la cámara.
+  // Esto evita que el mismo QR se lea múltiples veces.
+  try{
+    if(scanner) scanner.pause(true);
+  }catch(e){
+    console.warn("No se pudo pausar el escáner:", e);
+  }
 
   const box = document.getElementById("scanResult");
   box.className = "result neutral";
   box.innerHTML = '<div class="result-icon">📸</div><h2>QR capturado</h2><p>Validando boleto…</p>';
 
-  await validate(code);
+  try{
+    await validate(code);
+  }catch(e){
+    console.error("Error validando boleto:", e);
+    box.className = "result danger";
+    box.innerHTML = '<div class="result-icon">⛔</div><h2>ERROR DE VALIDACIÓN</h2><p>Intenta nuevamente.</p>';
+  }
+
   renderNextScanButton();
 }
 
