@@ -47,6 +47,40 @@ async function copyText(value, label) {
 $("#addAttendee").onclick = addAttendee;
 addAttendee();
 
+$("#showLookup").onclick=()=>{
+  $("#lookupPanel").classList.toggle("hidden");
+  if(!$("#lookupPanel").classList.contains("hidden")) $("#lookupFolio").focus();
+};
+
+function normalizePhone(v=""){ return v.replace(/\D/g,""); }
+
+$("#lookupBtn").onclick=async()=>{
+  const folio=$("#lookupFolio").value.trim().toUpperCase();
+  const telefono=normalizePhone($("#lookupPhone").value);
+  const msg=$("#lookupMessage");
+  msg.textContent="";
+  if(!folio || telefono.length<7){
+    msg.textContent="Captura un folio válido y el teléfono registrado.";
+    return;
+  }
+  const {data,error}=await sb.rpc("recuperar_reservacion_publica",{
+    p_folio:folio,
+    p_telefono:telefono
+  });
+  if(error){
+    msg.textContent="No se pudo consultar la reservación.";
+    return;
+  }
+  const r=Array.isArray(data)?data[0]:data;
+  if(!r || !r.public_token){
+    msg.textContent="No encontramos una reservación que coincida con esos datos.";
+    return;
+  }
+  sessionStorage.setItem("fiesta15_token",r.public_token);
+  location.href=`./estado.html?token=${encodeURIComponent(r.public_token)}`;
+};
+
+
 $("#reservationForm").addEventListener("submit", async e => {
   e.preventDefault();
   const personas = [...document.querySelectorAll(".attendee-name")].map(x => x.value.trim()).filter(Boolean);
@@ -76,6 +110,15 @@ async function showReservation(r) {
     <div class="flag-big">🎟️</div>
     <h2>Reservación creada</h2>
     <p>Guarda tu folio y realiza la transferencia por el total indicado.</p>
+    <div class="save-folio-box">
+      <h3>Guarda tu folio</h3>
+      <p>Lo necesitarás junto con tu número de WhatsApp para consultar después el estado de tu pago y tus boletos.</p>
+      <div class="folio-big">${esc(r.folio)}</div>
+      <div class="copy-actions">
+        <button id="copyFolio" type="button" class="btn secondary">Copiar folio</button>
+        <button id="shareWhatsapp" type="button" class="btn secondary">Guardar en WhatsApp</button>
+      </div>
+    </div>
     <div class="receipt">
       <div><span>Folio</span><strong>${esc(r.folio)}</strong></div>
       <div><span>Boletos</span><strong>${r.cantidad}</strong></div>
